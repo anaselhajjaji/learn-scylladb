@@ -26,7 +26,9 @@ services:
     command: /bin/sh -c "while sleep 1000; do :; done"  
 
     # Runs app on the same network as the service container, allows "forwardPorts" in devcontainer.json function.
-    network_mode: service:another-service
+    #network_mode: service:another-service
+    networks:
+      scyllanet:
     
     # Use "forwardPorts" in **devcontainer.json** to forward an app port locally. 
     # (Adding the "ports" property to this file will not forward from a Codespace.)
@@ -41,8 +43,32 @@ services:
        - seccomp:unconfined
     
   # You can include other services not opened by VS Code as well
-  another-service:
-    image: mongo:latest
+  some-scylla:
+    image: scylladb/scylla
     restart: unless-stopped
+    container_name: scylla-node1
+    command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    networks:
+      scyllanet:
+
+  some-scylla2:
+    image: scylladb/scylla
+    restart: unless-stopped
+    container_name: scylla-node2
+    command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    networks:
+      scyllanet:
+
+  some-scylla3:
+    image: scylladb/scylla
+    restart: unless-stopped
+    container_name: scylla-node3
+    command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    networks:
+      scyllanet:
+
 
     # As in the "app" service, use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+networks:
+  scyllanet:
+    driver: bridge
