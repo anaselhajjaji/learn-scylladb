@@ -43,27 +43,37 @@ services:
        - seccomp:unconfined
     
   # You can include other services not opened by VS Code as well
-  some-scylla:
+  scylla1:
     image: scylladb/scylla
     restart: unless-stopped
     container_name: scylla-node1
     command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    volumes:
+      - "./scylla/scylla.yaml:/etc/scylla/scylla.yaml"
+      - "./scylla/cassandra-rackdc.properties.dc1:/etc/scylla/cassandra-rackdc.properties"
+      - "./scylla/scylla-data.txt:/scylla-data.txt"
     networks:
       scyllanet:
 
-  some-scylla2:
+  scylla2:
     image: scylladb/scylla
     restart: unless-stopped
     container_name: scylla-node2
     command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    volumes:
+      - "./scylla/scylla.yaml:/etc/scylla/scylla.yaml"
+      - "./scylla/cassandra-rackdc.properties.dc1:/etc/scylla/cassandra-rackdc.properties"
     networks:
       scyllanet:
 
-  some-scylla3:
+  scylla3:
     image: scylladb/scylla
     restart: unless-stopped
     container_name: scylla-node3
     command: --seeds=scylla-node1,scylla-node2 --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+    volumes:
+      - "./scylla/scylla.yaml:/etc/scylla/scylla.yaml"
+      - "./scylla/cassandra-rackdc.properties.dc1:/etc/scylla/cassandra-rackdc.properties"
     networks:
       scyllanet:
 
