@@ -13,6 +13,11 @@ CREATE TABLE songs_by_year (
     loudness double,
     PRIMARY KEY(year_released, artist));
 
+CREATE MATERIALIZED VIEW songs_by_artist AS
+    SELECT * FROM songs_by_year
+    WHERE artist IS NOT NULL
+    PRIMARY KEY(artist, year_released);
+
 INSERT INTO songs_by_year("song_id","title","artist","album","year_released","duration","tempo","loudness") VALUES (1,'8:00','Intars Busulis','Kino',0,208.16934,140.029,-3.698);
 INSERT INTO songs_by_year("song_id","title","artist","album","year_released","duration","tempo","loudness") VALUES (2,'9:02','Aftermath','Tides of Sorrow',0,376.89424,87.006,-4.605);
 INSERT INTO songs_by_year("song_id","title","artist","album","year_released","duration","tempo","loudness") VALUES (3,'100%','Cocoa Tea','Kingston Hot',1992,228.96281,115.862,-11.627);

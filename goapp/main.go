@@ -12,7 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var stmts = createStatements()
+var stmtsByYear = createStatementsByYear()
+var stmtsByArtist = createStatementsByArtist()
 
 func main() {
 	logger := log.CreateLogger("info")
@@ -24,7 +25,8 @@ func main() {
 	}
 	defer session.Close()
 
-	selectQuery(session, logger)
+	selectByYearQuery(session, logger)
+	selectByArtistQuery(session, logger)
 	//insertQuery(session, "Mike", "Tyson", "12345 Foo Lane", "http://www.facebook.com/mtyson", logger)
 	//insertQuery(session, "Alex", "Jones", "56789 Hickory St", "http://www.facebook.com/ajones", logger)
 	//selectQuery(session, logger)
@@ -40,7 +42,7 @@ func main() {
 		FirstName: firstName,
 		LastName:  lastName,
 	}
-	err := gocqlx.Query(session.Query(stmts.del.stmt), stmts.del.names).BindStruct(r).ExecRelease()
+	err := gocqlx.Query(session.Query(stmtsByYear.del.stmt), stmtsByYear.del.names).BindStruct(r).ExecRelease()
 	if err != nil {
 		logger.Error("delete catalog.mutant_data", zap.Error(err))
 	}
@@ -54,16 +56,16 @@ func main() {
 		Address:         address,
 		PictureLocation: pictureLocation,
 	}
-	err := gocqlx.Query(session.Query(stmts.ins.stmt), stmts.ins.names).BindStruct(r).ExecRelease()
+	err := gocqlx.Query(session.Query(stmtsByYear.ins.stmt), stmtsByYear.ins.names).BindStruct(r).ExecRelease()
 	if err != nil {
 		logger.Error("insert catalog.mutant_data", zap.Error(err))
 	}
 }*/
 
-func selectQuery(session *gocql.Session, logger *zap.Logger) {
+func selectByYearQuery(session *gocql.Session, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := gocqlx.Query(session.Query(stmts.sel.stmt), stmts.sel.names).SelectRelease(&rs)
+	err := gocqlx.Query(session.Query(stmtsByYear.sel.stmt), stmtsByYear.sel.names).SelectRelease(&rs)
 	if err != nil {
 		logger.Warn("select songs_by_year", zap.Error(err))
 		return
@@ -73,11 +75,54 @@ func selectQuery(session *gocql.Session, logger *zap.Logger) {
 	}
 }
 
-func createStatements() *statements {
+func selectByArtistQuery(session *gocql.Session, logger *zap.Logger) {
+	logger.Info("Displaying Results:")
+	var rs []Record
+	err := gocqlx.Query(session.Query(stmtsByArtist.sel.stmt), stmtsByArtist.sel.names).SelectRelease(&rs)
+	if err != nil {
+		logger.Warn("select songs_by_year", zap.Error(err))
+		return
+	}
+	for _, r := range rs {
+		logger.Info("\t" + strconv.Itoa(r.YearReleased) + " " + r.Artist + ", " + r.Title + ", " + r.Album)
+	}
+}
+
+func createStatementsByYear() *statements {
+	m := table.Metadata{
+		Name:    "songs_by_artist",
+		Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
+		PartKey: []string{"artist"},
+		SortKey: []string{"year_released"},
+	}
+	tbl := table.New(m)
+
+	deleteStmt, deleteNames := tbl.Delete()
+	insertStmt, insertNames := tbl.Insert()
+	// Normally a select statement such as this would use `tbl.Select()` to select by
+	// primary key but now we just want to display all the records...
+	selectStmt, selectNames := qb.Select(m.Name).Columns(m.Columns...).ToCql()
+	return &statements{
+		del: query{
+			stmt:  deleteStmt,
+			names: deleteNames,
+		},
+		ins: query{
+			stmt:  insertStmt,
+			names: insertNames,
+		},
+		sel: query{
+			stmt:  selectStmt,
+			names: selectNames,
+		},
+	}
+}
+
+func createStatementsByArtist() *statements {
 	m := table.Metadata{
 		Name:    "songs_by_year",
 		Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
-		PartKey: []string{"year_released"},
+		PartKey: []string{"artist"},
 		SortKey: []string{"artist"},
 	}
 	tbl := table.New(m)
