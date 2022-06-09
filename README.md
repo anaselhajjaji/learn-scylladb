@@ -10,3 +10,11 @@
     `docker exec -it scylla-node1 bash` followed with `nodetool status` and `cqlsh`
 
 - Create schema and import test data: `docker exec scylla-node1 cqlsh -f /scylla-data.txt`
+
+## Useful commands
+
+### Using nodetool
+
+- Print status of the cluster: `nodetool status`
+
+- 
