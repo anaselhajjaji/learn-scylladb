@@ -2,24 +2,23 @@ package main
 
 import (
 	"goapp/internal/log"
-	"goapp/internal/scylla"
 	"strconv"
 
 	"github.com/gocql/gocql"
-	"github.com/scylladb/gocqlx"
-	"github.com/scylladb/gocqlx/qb"
-	"github.com/scylladb/gocqlx/table"
+	"github.com/scylladb/gocqlx/v2"
+	"github.com/scylladb/gocqlx/v2/table"
 	"go.uber.org/zap"
 )
-
-var stmtsByYear = createStatementsByYear()
-var stmtsByArtist = createStatementsByArtist()
 
 func main() {
 	logger := log.CreateLogger("info")
 
-	cluster := scylla.CreateCluster(gocql.Quorum, "songs", "scylla-node1", "scylla-node2", "scylla-node3")
-	session, err := gocql.NewSession(*cluster)
+	cluster := gocql.NewCluster("scylla-node1", "scylla-node2", "scylla-node3")
+	cluster.Keyspace = "songs"
+	cluster.Consistency = gocql.LocalQuorum
+	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.DCAwareRoundRobinPolicy("DC1"))
+
+	session, err := gocqlx.WrapSession(cluster.CreateSession())
 	if err != nil {
 		logger.Fatal("unable to connect to scylla", zap.Error(err))
 	}
@@ -27,45 +26,46 @@ func main() {
 
 	selectByYearQuery(session, logger)
 	selectByArtistQuery(session, logger)
-	//insertQuery(session, "Mike", "Tyson", "12345 Foo Lane", "http://www.facebook.com/mtyson", logger)
-	//insertQuery(session, "Alex", "Jones", "56789 Hickory St", "http://www.facebook.com/ajones", logger)
-	//selectQuery(session, logger)
-	//deleteQuery(session, "Mike", "Tyson", logger)
-	//selectQuery(session, logger)
-	//deleteQuery(session, "Alex", "Jones", logger)
-	//selectQuery(session, logger)
+	insertQuery(session, 50000, "Anas's Song", "anas", "Song Album", 2022, logger)
+	selectQueryWhere(session, "Anas", 2022, logger)
+	deleteQuery(session, "Anas", 2022, logger)
+	selectQueryWhere(session, "Anas", 2022, logger)
 }
 
-/*func deleteQuery(session *gocql.Session, firstName string, lastName string, logger *zap.Logger) {
-	logger.Info("Deleting " + firstName + "......")
+func deleteQuery(session gocqlx.Session, artist string, yearReleased int, logger *zap.Logger) {
+	logger.Info("Deleting " + artist + "......")
 	r := Record{
-		FirstName: firstName,
-		LastName:  lastName,
+		YearReleased: yearReleased,
+		Artist:       artist,
 	}
-	err := gocqlx.Query(session.Query(stmtsByYear.del.stmt), stmtsByYear.del.names).BindStruct(r).ExecRelease()
+	err := session.Query(songsByYearTable.Delete()).BindStruct(r).ExecRelease()
 	if err != nil {
-		logger.Error("delete catalog.mutant_data", zap.Error(err))
+		logger.Error("delete", zap.Error(err))
 	}
-}*/
+}
 
-/*func insertQuery(session *gocql.Session, firstName, lastName, address, pictureLocation string, logger *zap.Logger) {
-	logger.Info("Inserting " + firstName + "......")
+func insertQuery(session gocqlx.Session, songId int, title string, artist string, album string, yearReleased int, logger *zap.Logger) {
+	logger.Info("Inserting " + title + "......")
 	r := Record{
-		FirstName:       firstName,
-		LastName:        lastName,
-		Address:         address,
-		PictureLocation: pictureLocation,
+		SongId:       songId,
+		Title:        title,
+		Artist:       artist,
+		Album:        album,
+		YearReleased: yearReleased,
+		Duration:     0,
+		Tempo:        0,
+		Loudness:     0,
 	}
-	err := gocqlx.Query(session.Query(stmtsByYear.ins.stmt), stmtsByYear.ins.names).BindStruct(r).ExecRelease()
+	err := session.Query(songsByYearTable.Insert()).BindStruct(r).ExecRelease()
 	if err != nil {
-		logger.Error("insert catalog.mutant_data", zap.Error(err))
+		logger.Error("insert", zap.Error(err))
 	}
-}*/
+}
 
-func selectByYearQuery(session *gocql.Session, logger *zap.Logger) {
+func selectByYearQuery(session gocqlx.Session, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := gocqlx.Query(session.Query(stmtsByYear.sel.stmt), stmtsByYear.sel.names).SelectRelease(&rs)
+	err := session.Query(songsByYearTable.SelectAll()).SelectRelease(&rs)
 	if err != nil {
 		logger.Warn("select songs_by_year", zap.Error(err))
 		return
@@ -75,10 +75,15 @@ func selectByYearQuery(session *gocql.Session, logger *zap.Logger) {
 	}
 }
 
-func selectByArtistQuery(session *gocql.Session, logger *zap.Logger) {
+func selectQueryWhere(session gocqlx.Session, artist string, yearReleased int, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := gocqlx.Query(session.Query(stmtsByArtist.sel.stmt), stmtsByArtist.sel.names).SelectRelease(&rs)
+	r := Record{
+		YearReleased: yearReleased,
+		Artist:       artist,
+	}
+
+	err := session.Query(songsByYearTable.Select()).BindStruct(r).SelectRelease(&rs)
 	if err != nil {
 		logger.Warn("select songs_by_year", zap.Error(err))
 		return
@@ -88,76 +93,36 @@ func selectByArtistQuery(session *gocql.Session, logger *zap.Logger) {
 	}
 }
 
-func createStatementsByYear() *statements {
-	m := table.Metadata{
-		Name:    "songs_by_artist",
-		Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
-		PartKey: []string{"artist"},
-		SortKey: []string{"year_released"},
+func selectByArtistQuery(session gocqlx.Session, logger *zap.Logger) {
+	logger.Info("Displaying Results:")
+	var rs []Record
+	err := session.Query(songsByArtistTable.SelectAll()).SelectRelease(&rs)
+	if err != nil {
+		logger.Warn("select songs_by_artist", zap.Error(err))
+		return
 	}
-	tbl := table.New(m)
-
-	deleteStmt, deleteNames := tbl.Delete()
-	insertStmt, insertNames := tbl.Insert()
-	// Normally a select statement such as this would use `tbl.Select()` to select by
-	// primary key but now we just want to display all the records...
-	selectStmt, selectNames := qb.Select(m.Name).Columns(m.Columns...).ToCql()
-	return &statements{
-		del: query{
-			stmt:  deleteStmt,
-			names: deleteNames,
-		},
-		ins: query{
-			stmt:  insertStmt,
-			names: insertNames,
-		},
-		sel: query{
-			stmt:  selectStmt,
-			names: selectNames,
-		},
+	for _, r := range rs {
+		logger.Info("\t" + strconv.Itoa(r.YearReleased) + " " + r.Artist + ", " + r.Title + ", " + r.Album)
 	}
 }
 
-func createStatementsByArtist() *statements {
-	m := table.Metadata{
-		Name:    "songs_by_year",
-		Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
-		PartKey: []string{"artist"},
-		SortKey: []string{"artist"},
-	}
-	tbl := table.New(m)
-
-	deleteStmt, deleteNames := tbl.Delete()
-	insertStmt, insertNames := tbl.Insert()
-	// Normally a select statement such as this would use `tbl.Select()` to select by
-	// primary key but now we just want to display all the records...
-	selectStmt, selectNames := qb.Select(m.Name).Columns(m.Columns...).ToCql()
-	return &statements{
-		del: query{
-			stmt:  deleteStmt,
-			names: deleteNames,
-		},
-		ins: query{
-			stmt:  insertStmt,
-			names: insertNames,
-		},
-		sel: query{
-			stmt:  selectStmt,
-			names: selectNames,
-		},
-	}
+// Songs By Artist
+var songsByArtistMetadata = table.Metadata{
+	Name:    "songs_by_artist",
+	Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
+	PartKey: []string{"artist"},
+	SortKey: []string{"year_released"},
 }
+var songsByArtistTable = table.New(songsByArtistMetadata)
 
-type query struct {
-	stmt  string
-	names []string
+// Songs By Year
+var songsByYearMetadata = table.Metadata{
+	Name:    "songs_by_year",
+	Columns: []string{"song_id", "title", "artist", "album", "year_released", "duration", "tempo", "loudness"},
+	PartKey: []string{"year_released"},
+	SortKey: []string{"artist"},
 }
-
-type statements struct {
-	del query
-	ins query
-	sel query
-}
+var songsByYearTable = table.New(songsByYearMetadata)
 
 type Record struct {
 	SongId       int     `db:"song_id"`
