@@ -17,4 +17,25 @@
 
 - Print status of the cluster: `nodetool status`
 
-- 
+- Fetch read/write latency, partition size...: `nodetool cfhistograms songs songs_by_year`
+
+- In-depth diagnostics of a specific table: `nodetool tablestats songs.songs_by_year`
+
+- probabilistic tracing: randomly chooses a request to be traced with some defined probability, example (0.01%) of all queries in node: `nodetool settraceprobability 0.0001`
+
+- remove a node (irreversible action): `nodetool decommission` then `nodetool removenode node-id`. `node-id` can be found in `nodetool status`
+
+- after adding a new cluster, we need to alter keyspace to replicate into new DC then run `nodetool rebuild -new_dc_name <existing_dc_name>` and run full cluster repair
+
+### logs using journalctl
+
+- get logs: `journalctl -u scylla-server`
+
+- get logs since last server boot: `journalctl -u scylla -b`
+
+# using cqlsh
+
+- Enable tracing: `cqlsh tracing on|off`
+
+
+
