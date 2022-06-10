@@ -17,6 +17,8 @@
 
 - Print status of the cluster: `nodetool status`
 
+- Example: Sample the most active partitions for the table test.users for 1,000 milliseconds `nodetool toppartitions test users 1000`
+
 - Fetch read/write latency, partition size...: `nodetool cfhistograms songs songs_by_year`
 
 - In-depth diagnostics of a specific table: `nodetool tablestats songs.songs_by_year`
