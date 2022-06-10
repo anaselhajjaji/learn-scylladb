@@ -39,5 +39,6 @@
 
 - Enable tracing: `cqlsh tracing on|off`
 
+- Identify large partitions detected at compaction step: `select * from system.large_partitions;`
 
 
