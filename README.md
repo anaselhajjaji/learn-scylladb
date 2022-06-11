@@ -1,5 +1,7 @@
 # Instructions
 
+- ScyllaDB monitoring setup from [here](https://github.com/scylladb/scylla-monitoring/tree/branch-4.0)
+
 - Scylla code inspired from [here](https://github.com/scylladb/scylla-code-samples/tree/master/mms)
 
 - songs content got from [here](https://github.com/socratica/sql)
