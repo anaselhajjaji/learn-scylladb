@@ -63,6 +63,7 @@ services:
     volumes:
       - "./scylla/scylla.yaml:/etc/scylla/scylla.yaml"
       - "./scylla/cassandra-rackdc.properties.dc1:/etc/scylla/cassandra-rackdc.properties"
+      - "./scylla/scylla-data.txt:/scylla-data.txt"
     networks:
       scyllanet:
 
@@ -74,6 +75,7 @@ services:
     volumes:
       - "./scylla/scylla.yaml:/etc/scylla/scylla.yaml"
       - "./scylla/cassandra-rackdc.properties.dc1:/etc/scylla/cassandra-rackdc.properties"
+      - "./scylla/scylla-data.txt:/scylla-data.txt"
     networks:
       scyllanet:
 
