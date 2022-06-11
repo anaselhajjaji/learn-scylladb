@@ -24,12 +24,14 @@ func main() {
 	}
 	defer session.Close()
 
+	//for i := 1; i < 20; i++ {
 	selectByYearQuery(session, logger)
 	selectByArtistQuery(session, logger)
 	insertQuery(session, 50000, "Anas's Song", "anas", "Song Album", 2022, logger)
 	selectQueryWhere(session, "Anas", 2022, logger)
 	deleteQuery(session, "Anas", 2022, logger)
 	selectQueryWhere(session, "Anas", 2022, logger)
+	//}
 }
 
 func deleteQuery(session gocqlx.Session, artist string, yearReleased int, logger *zap.Logger) {
