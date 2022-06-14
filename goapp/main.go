@@ -24,17 +24,17 @@ func main() {
 	}
 	defer session.Close()
 
-	//for i := 1; i < 20; i++ {
-	selectByYearQuery(session, logger)
-	selectByArtistQuery(session, logger)
-	insertQuery(session, 50000, "Anas's Song", "anas", "Song Album", 2022, logger)
-	selectQueryWhere(session, "Anas", 2022, logger)
-	deleteQuery(session, "Anas", 2022, logger)
-	selectQueryWhere(session, "Anas", 2022, logger)
+	//for i := 1; i < 500; i++ {
+	selectByYearQuery(session, cluster.Consistency, logger)
+	selectByArtistQuery(session, cluster.Consistency, logger)
+	insertQuery(session, cluster.Consistency, 50000, "Anas's Song", "anas", "Song Album", 2022, logger)
+	selectQueryWhere(session, cluster.Consistency, "Anas", 2022, logger)
+	deleteQuery(session, cluster.Consistency, "Anas", 2022, logger)
+	selectQueryWhere(session, cluster.Consistency, "Anas", 2022, logger)
 	//}
 }
 
-func deleteQuery(session gocqlx.Session, artist string, yearReleased int, logger *zap.Logger) {
+func deleteQuery(session gocqlx.Session, consistency gocql.Consistency, artist string, yearReleased int, logger *zap.Logger) {
 	logger.Info("Deleting " + artist + "......")
 	r := Record{
 		YearReleased: yearReleased,
@@ -42,11 +42,19 @@ func deleteQuery(session gocqlx.Session, artist string, yearReleased int, logger
 	}
 	err := session.Query(songsByYearTable.Delete()).BindStruct(r).ExecRelease()
 	if err != nil {
+		downgradedCl, consistencyError := downgradConsistency(consistency, err, logger)
+
+		if consistencyError != nil {
+			logger.Warn("Error ", zap.Error(consistencyError))
+			return
+		}
+
 		logger.Error("delete", zap.Error(err))
+		deleteQuery(session, downgradedCl, artist, yearReleased, logger)
 	}
 }
 
-func insertQuery(session gocqlx.Session, songId int, title string, artist string, album string, yearReleased int, logger *zap.Logger) {
+func insertQuery(session gocqlx.Session, consistency gocql.Consistency, songId int, title string, artist string, album string, yearReleased int, logger *zap.Logger) {
 	logger.Info("Inserting " + title + "......")
 	r := Record{
 		SongId:       songId,
@@ -58,26 +66,49 @@ func insertQuery(session gocqlx.Session, songId int, title string, artist string
 		Tempo:        0,
 		Loudness:     0,
 	}
-	err := session.Query(songsByYearTable.Insert()).BindStruct(r).ExecRelease()
+
+	query := session.Query(songsByYearTable.Insert())
+	query.SetConsistency(consistency)
+
+	err := query.BindStruct(r).ExecRelease()
 	if err != nil {
+		downgradedCl, consistencyError := downgradConsistency(consistency, err, logger)
+
+		if consistencyError != nil {
+			logger.Warn("Error ", zap.Error(consistencyError))
+			return
+		}
+
 		logger.Error("insert", zap.Error(err))
+		insertQuery(session, downgradedCl, songId, title, artist, album, yearReleased, logger)
 	}
 }
 
-func selectByYearQuery(session gocqlx.Session, logger *zap.Logger) {
+func selectByYearQuery(session gocqlx.Session, consistency gocql.Consistency, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := session.Query(songsByYearTable.SelectAll()).SelectRelease(&rs)
+
+	query := session.Query(songsByYearTable.SelectAll())
+	query.SetConsistency(consistency)
+
+	err := query.SelectRelease(&rs)
 	if err != nil {
+		downgradedCl, consistencyError := downgradConsistency(consistency, err, logger)
+
+		if consistencyError != nil {
+			logger.Warn("Error ", zap.Error(consistencyError))
+			return
+		}
+
 		logger.Warn("select songs_by_year", zap.Error(err))
-		return
+		selectByYearQuery(session, downgradedCl, logger)
 	}
 	for _, r := range rs {
 		logger.Info("\t" + strconv.Itoa(r.YearReleased) + " " + r.Artist + ", " + r.Title + ", " + r.Album)
 	}
 }
 
-func selectQueryWhere(session gocqlx.Session, artist string, yearReleased int, logger *zap.Logger) {
+func selectQueryWhere(session gocqlx.Session, consistency gocql.Consistency, artist string, yearReleased int, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
 	r := Record{
@@ -85,27 +116,58 @@ func selectQueryWhere(session gocqlx.Session, artist string, yearReleased int, l
 		Artist:       artist,
 	}
 
-	err := session.Query(songsByYearTable.Select()).BindStruct(r).SelectRelease(&rs)
+	query := session.Query(songsByYearTable.Select())
+	query.SetConsistency(consistency)
+
+	err := query.BindStruct(r).SelectRelease(&rs)
 	if err != nil {
+		downgradedCl, consistencyError := downgradConsistency(consistency, err, logger)
+
+		if consistencyError != nil {
+			logger.Warn("Error ", zap.Error(consistencyError))
+			return
+		}
+
 		logger.Warn("select songs_by_year", zap.Error(err))
-		return
+		selectQueryWhere(session, downgradedCl, artist, yearReleased, logger)
 	}
 	for _, r := range rs {
 		logger.Info("\t" + strconv.Itoa(r.YearReleased) + " " + r.Artist + ", " + r.Title + ", " + r.Album)
 	}
 }
 
-func selectByArtistQuery(session gocqlx.Session, logger *zap.Logger) {
+func selectByArtistQuery(session gocqlx.Session, consistency gocql.Consistency, logger *zap.Logger) {
 	logger.Info("Displaying Results:")
 	var rs []Record
-	err := session.Query(songsByArtistTable.SelectAll()).SelectRelease(&rs)
+
+	query := session.Query(songsByArtistTable.SelectAll())
+	query.SetConsistency(consistency)
+
+	err := query.SelectRelease(&rs)
 	if err != nil {
+		downgradedCl, consistencyError := downgradConsistency(consistency, err, logger)
+
+		if consistencyError != nil {
+			logger.Warn("Error ", zap.Error(consistencyError))
+			return
+		}
+
 		logger.Warn("select songs_by_artist", zap.Error(err))
-		return
+		selectByArtistQuery(session, downgradedCl, logger)
 	}
 	for _, r := range rs {
 		logger.Info("\t" + strconv.Itoa(r.YearReleased) + " " + r.Artist + ", " + r.Title + ", " + r.Album)
 	}
+}
+
+func downgradConsistency(current gocql.Consistency, original error, logger *zap.Logger) (gocql.Consistency, error) {
+	if current == gocql.LocalQuorum {
+		logger.Info("\t" + "Consistency downgraded to LocalOne")
+		return gocql.LocalOne, nil
+	}
+
+	logger.Warn("\t" + "Can't downgrade more the consistency")
+	return current, original
 }
 
 // Songs By Artist
