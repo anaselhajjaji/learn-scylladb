@@ -29,12 +29,20 @@ public class App {
             .withKeyspace(CqlIdentifier.fromCql("songs"))
             .withConfigLoader(loader)
             .build();
-        
-        // Quick example
-        ResultSet rs = session.execute("SELECT * FROM songs_by_year");
 
-        for (Row row : rs) {
-            System.out.println(row.getString("title"));
-        }        
+        // Prepare statement
+        PreparedStatement select = session.prepare("SELECT * FROM songs_by_year");
+            
+        // Quick example
+        for (int i = 0; i < 5; i++) {
+            System.out.println("ITERATION " + i);
+            System.out.println("-----------");
+
+            ResultSet rs = session.execute(select.bind());
+            
+            for (Row row : rs) {
+                System.out.println(row.getString("title"));
+            }
+        } 
     }
 }
